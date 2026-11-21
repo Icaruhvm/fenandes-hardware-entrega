@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1E293B" />
+  <script>
+    (function () {
+      try {
+        if (localStorage.getItem("fh.entrega.tema") === "escuro") {
+          document.documentElement.classList.add("dark");
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute("content", "#020617");
+        }
+      } catch (err) {}
+    })();
+  </script>
+  <title>Fernandes Hardware — Registros de Manutenção</title>
+  <script src="vendor/tailwind.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: "#1E293B",
+            canvas: "#F8FAFC",
+            brand: "#2563EB",
+          },
+          fontFamily: {
+            sans: ["Segoe UI", "Inter", "system-ui", "sans-serif"],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body { background: #F8FAFC; }
+    .thumb { aspect-ratio: 1 / 1; }
+    button, label, input, select, textarea { touch-action: manipulation; }
+    .theme-toggle { display: inline-flex; align-items: center; gap: 8px; color: #fff; font-size: 13px; font-weight: 600; }
+    html.dark { color-scheme: dark; }
+    html.dark body,
+    html.dark .bg-canvas { background: #0b1220; }
+    html.dark .bg-white { background-color: #1e293b; }
+    html.dark .bg-ink { background-color: #020617; }
+    html.dark .bg-slate-100 { background-color: #0f172a; }
+    html.dark .bg-slate-200 { background-color: #1e293b; }
+    html.dark .text-ink { color: #f8fafc; }
+    html.dark .text-slate-800 { color: #f1f5f9; }
+    html.dark .text-slate-700 { color: #e2e8f0; }
+    html.dark .text-slate-600 { color: #cbd5e1; }
+    html.dark .text-slate-500 { color: #94a3b8; }
+    html.dark .text-slate-400 { color: #94a3b8; }
+    html.dark .border-slate-200 { border-color: #334155; }
+    html.dark .border-slate-300 { border-color: #475569; }
+    html.dark .ring-slate-200 { --tw-ring-color: #334155; }
+    html.dark .ring-ink { --tw-ring-color: #334155; }
+    html.dark .hover\:bg-slate-50:hover { background-color: #334155; }
+    html.dark .disabled\:bg-slate-300:disabled { background-color: #334155; color: #94a3b8; }
+    html.dark input,
+    html.dark select,
+    html.dark textarea { color: #f1f5f9; }
+    html.dark input::placeholder,
+    html.dark textarea::placeholder { color: #64748b; }
+    html.dark .bg-emerald-50 { background-color: #052e24; }
+    html.dark .bg-emerald-100 { background-color: #064e3b; }
+    html.dark .text-emerald-800 { color: #a7f3d0; }
+    html.dark .text-emerald-900 { color: #d1fae5; }
+    html.dark .border-emerald-200 { border-color: #065f46; }
+    html.dark .ring-emerald-200 { --tw-ring-color: #065f46; }
+    html.dark .bg-blue-100 { background-color: #1e3a8a; }
+    html.dark .text-blue-800 { color: #bfdbfe; }
+    html.dark .ring-blue-200 { --tw-ring-color: #1d4ed8; }
+    html.dark .bg-amber-50 { background-color: #451a03; }
+    html.dark .bg-amber-100 { background-color: #78350f; }
+    html.dark .text-amber-900,
+    html.dark .text-amber-950 { color: #fde68a; }
+    html.dark .border-amber-200 { border-color: #92400e; }
+    html.dark .ring-amber-200 { --tw-ring-color: #92400e; }
+    html.dark .bg-rose-50 { background-color: #4c0519; }
+    html.dark .text-rose-800 { color: #fecdd3; }
+    html.dark .border-rose-200 { border-color: #9f1239; }
+    html.dark .bg-sky-50 { background-color: #082f49; }
+    html.dark .text-sky-950 { color: #e0f2fe; }
+    html.dark .text-sky-700 { color: #7dd3fc; }
+    html.dark .border-sky-100 { border-color: #075985; }
+    html.dark .ring-sky-200 { --tw-ring-color: #0369a1; }
+    html.dark .hover\:bg-sky-100:hover { background-color: #0c4a6e; }
+    .ios-switch {
+      position: relative; width: 51px; height: 31px; border: 0; border-radius: 31px;
+      background: rgba(255,255,255,.28); padding: 0; cursor: pointer; flex: none;
+    }
+    .ios-switch span {
+      position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%;
+      background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.28); transition: transform .2s ease;
+    }
+    .ios-switch.is-on { background: #34C759; }
+    .ios-switch.is-on span { transform: translateX(20px); }
+  </style>
+</head>
+<body class="min-h-screen bg-canvas font-sans text-slate-800 antialiased">
+  <div id="root"></div>
+  <noscript>Ative o JavaScript para usar os registros de manutenção.</noscript>
+
+  <script src="vendor/react.production.min.js"></script>
+  <script src="vendor/react-dom.production.min.js"></script>
+  <script src="js/bling-api.js"></script>
+  <script src="vendor/babel.min.js"></script>
+  <script type="text/babel" data-presets="react">
+    const { useEffect, useMemo, useRef, useState } = React;
+    const { HARDWARE, MANUTENCOES, STATUS, BlingApi, todayISO, filterOrdens } = window.FernandesOS;
+
+    const fieldClass =
+      "mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-base outline-none focus:border-brand focus:ring-2 focus:ring-brand/30";
+
+    function formatWhen(iso) {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return "—";
+      const p = (n) => String(n).padStart(2, "0");
+      return p(d.getDate()) + "/" + p(d.getMonth() + 1) + "/" + d.getFullYear() + " - " + p(d.getHours()) + ":" + p(d.getMinutes());
+    }
+
+    function formatDay(isoDate) {
+      if (!isoDate) return "—";
+      const parts = String(isoDate).split("-");
+      if (parts.length < 3) return isoDate;
+      return parts[2] + "/" + parts[1] + "/" + parts[0];
+    }
+
+    function badgeClass(status) {
+      if (status === "Concluída") return "bg-emerald-100 text-emerald-800 ring-emerald-200";
+      if (status === "Em Andamento") return "bg-blue-100 text-blue-800 ring-blue-200";
+      return "bg-amber-100 text-amber-900 ring-amber-200";
+    }
+
+    function emptyForm() {
+      return {
+        id: "",
+        hardware: "Notebook",
+        dataEntrada: todayISO(),
+        dataSaida: "",
+        tipoManutencao: "Corretiva",
+        status: "Pendente",
+        tecnico: "",
+        descricao: "",
+        clienteNome: "",
+        clienteCpf: "",
+        telefone: "",
+        fotosEntrada: [],
+        fotosSaida: [],
+      };
+    }
+
+    const TEMA_KEY = "fh.entrega.tema";
+
+    function apenasDigitos(valor, maximo) {
+      return String(valor || "").replace(/\D/g, "").slice(0, maximo);
+    }
+
+    function mascaraCpfCnpj(valor) {
+      const d = apenasDigitos(valor, 14);
+      if (d.length <= 11) {
+        if (d.length <= 3) return d;
+        if (d.length <= 6) return d.slice(0, 3) + "." + d.slice(3);
+        if (d.length <= 9) return d.slice(0, 3) + "." + d.slice(3, 6) + "." + d.slice(6);
+        return d.slice(0, 3) + "." + d.slice(3, 6) + "." + d.slice(6, 9) + "-" + d.slice(9);
+      }
+      let out = d.slice(0, 2) + "." + d.slice(2, 5) + "." + d.slice(5, 8);
+      if (d.length > 8) out += "/" + d.slice(8, 12);
+      if (d.length > 12) out += "-" + d.slice(12);
+      return out;
+    }
+
+    function mascaraTelefone(valor) {
+      const d = apenasDigitos(valor, 11);
+      if (!d) return "";
+      if (d.length < 3) return "(" + d;
+      if (d.length <= 6) return "(" + d.slice(0, 2) + ") " + d.slice(2);
+      if (d.length <= 10) return "(" + d.slice(0, 2) + ") " + d.slice(2, 6) + "-" + d.slice(6);
+      return "(" + d.slice(0, 2) + ") " + d.slice(2, 7) + "-" + d.slice(7);
+    }
+
+    function cpfValido(d) {
+      if (!/^\d{11}$/.test(d) || /^(\d)\1{10}$/.test(d)) return false;
+      let soma = 0;
+      for (let i = 0; i < 9; i += 1) soma += Number(d[i]) * (10 - i);
+      let resto = (soma * 10) % 11;
+      if (resto === 10) resto = 0;
+      if (resto !== Number(d[9])) return false;
+      soma = 0;
+      for (let i = 0; i < 10; i += 1) soma += Number(d[i]) * (11 - i);
+      resto = (soma * 10) % 11;
+      if (resto === 10) resto = 0;
+      return resto === Number(d[10]);
+    }
+
+    function cnpjValido(d) {
+      if (!/^\d{14}$/.test(d) || /^(\d)\1{13}$/.test(d)) return false;
+      const peso1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+      const peso2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+      let soma = 0;
+      for (let i = 0; i < 12; i += 1) soma += Number(d[i]) * peso1[i];
+      let resto = soma % 11;
+      const primeiro = resto < 2 ? 0 : 11 - resto;
+      if (primeiro !== Number(d[12])) return false;
+      soma = 0;
+      for (let i = 0; i < 13; i += 1) soma += Number(d[i]) * peso2[i];
+      resto = soma % 11;
+      const segundo = resto < 2 ? 0 : 11 - resto;
+      return segundo === Number(d[13]);
+    }
+
+    function documentoValido(valor) {
+      const d = apenasDigitos(valor, 14);
+      if (d.length === 11) return cpfValido(d);
+      if (d.length === 14) return cnpjValido(d);
+      return false;
+    }
+
+    function telefoneAceito(valor) {
+      const d = apenasDigitos(valor, 11);
+      if (!d) return true;
+      const ddd = Number(d.slice(0, 2));
+      if (d.length === 11) return ddd >= 11 && d[2] === "9";
+      if (d.length === 10) return ddd >= 11 && "2345".indexOf(d[2]) >= 0;
+      return false;
+    }
+
+    function temaEscuro() {
+      try {
+        return localStorage.getItem(TEMA_KEY) === "escuro";
+      } catch (err) {
+        return false;
+      }
+    }
+
+    function aplicarTema(escuro) {
+      document.documentElement.classList.toggle("dark", escuro);
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute("content", escuro ? "#020617" : "#1E293B");
+    }
+
+    function urlConectar() {
+      try {
+        if (location.protocol !== "file:" && location.origin) return location.origin + "/api/bling/autorizar";
+      } catch (err) {}
+      return "http://127.0.0.1:8080/api/bling/autorizar";
+    }
+
+    function compressImage(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error("Não foi possível ler a imagem."));
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            const maxSide = 1600;
+            const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.max(1, Math.round(img.width * scale));
+            canvas.height = Math.max(1, Math.round(img.height * scale));
+            canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL("image/jpeg", 0.72));
+          };
+          img.onerror = () => reject(new Error("Use uma foto JPG ou PNG. Este formato não abriu na bancada."));
+          img.src = String(reader.result);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function App() {
+      const [view, setView] = useState("list");
+      const [catalogo, setCatalogo] = useState([]);
+      const [query, setQuery] = useState("");
+      const [status, setStatus] = useState("");
+      const [escuro, setEscuro] = useState(temaEscuro);
+      const [testMode, setTestMode] = useState(function () { return BlingApi.modoTeste(); });
+      const [bling, setBling] = useState(function () { return BlingApi.modoTeste() ? "Modo de testes" : "Bling API: verificando…"; });
+      const [blingOk, setBlingOk] = useState(false);
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState("");
+      const [notice, setNotice] = useState("");
+      const [current, setCurrent] = useState(null);
+      const [form, setForm] = useState(emptyForm());
+      const [formFrom, setFormFrom] = useState("list");
+      const [photoCat, setPhotoCat] = useState("entrada");
+      const [preview, setPreview] = useState("");
+      const [fileName, setFileName] = useState("");
+      const [capturedAt, setCapturedAt] = useState("");
+      const [lightbox, setLightbox] = useState(null);
+      const [busy, setBusy] = useState(false);
+      const [tick, setTick] = useState(0);
+      const [backupPendente, setBackupPendente] = useState(false);
+      const [syncNumero, setSyncNumero] = useState("");
+      const [imgPendentes, setImgPendentes] = useState([]);
+      const [imgDetalhe, setImgDetalhe] = useState(false);
+      const cameraRef = useRef(null);
+      const galleryRef = useRef(null);
+      const catalogoRef = useRef([]);
+      const imgFila = useRef(new Set());
+      catalogoRef.current = catalogo;
+
+      const locked = current && current.status === "Concluída";
+      const fotosEntrada = ((current && current.fotos) || []).filter((f) => f.categoria === "entrada");
+      const fotosSaida = ((current && current.fotos) || []).filter((f) => f.categoria === "saida");
+      const ordens = useMemo(function () { return filterOrdens(catalogo, query, status); }, [catalogo, query, status]);
+      const semBling = !testMode && !blingOk;
+      const formCameraRef = useRef(null);
+      const formGalleryRef = useRef(null);
+      const formFotoCat = useRef("entrada");
+
+      useEffect(() => {
+        let cancel = false;
+        setLoading(true);
+        (async () => {
+          try {
+            const health = await BlingApi.health();
+            if (cancel) return;
+            setBling(health.label);
+            setBlingOk(health.ok);
+            setTestMode(!!health.teste);
+            const rows = await BlingApi.listOrdens({});
+            if (cancel) return;
+            setCatalogo(rows);
+            setBackupPendente(rows.length > 0 && BlingApi.backupPendente());
+            setError("");
+          } catch (err) {
+            if (cancel) return;
+            setBlingOk(false);
+            setBling("Bling API: desconectado");
+            setError(err.message || "Falha ao consultar o Bling.");
+          } finally {
+            if (!cancel) setLoading(false);
+          }
+        })();
+        return () => { cancel = true; };
+      }, [tick]);
+
+      useEffect(() => {
+        imgFila.current = new Set();
+        if (testMode || !blingOk || view !== "list") return undefined;
+        let cancel = false;
+        const worker = async () => {
+          let feitos = 0;
+          while (!cancel && feitos < 8) {
+            const proximo = catalogoRef.current.find((os) => os.blingId && !os.fotosEm && !imgFila.current.has(os.id));
+            if (!proximo) return;
+            imgFila.current.add(proximo.id);
+            setImgPendentes((prev) => (prev.indexOf(proximo.id) >= 0 ? prev : prev.concat(proximo.id)));
+            try {
+              const atual = await BlingApi.carregarImagens(proximo.id);
+              if (!cancel) setCatalogo((prev) => prev.map((item) => (item.id === atual.id ? atual : item)));
+            } catch (err) {
+              if (!cancel) {
+                setCatalogo((prev) => prev.map((item) => (item.id === proximo.id ? Object.assign({}, item, { fotosEm: Date.now() }) : item)));
+              }
+            }
+            feitos += 1;
+            if (!cancel) setImgPendentes((prev) => prev.filter((id) => id !== proximo.id));
+          }
+        };
+        worker();
+        return () => { cancel = true; };
+      }, [testMode, blingOk, view, catalogo.length]);
+
+      useEffect(() => {
+        function onKey(event) {
+          if (event.key === "Escape") setLightbox(null);
+        }
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+      }, []);
+
+      useEffect(() => {
+        if (!notice) return undefined;
+        const handle = setTimeout(() => setNotice(""), 3200);
+        return () => clearTimeout(handle);
+      }, [notice]);
+
+      useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const retorno = params.get("bling");
+        if (!retorno) return;
+        const msg = String(params.get("msg") || "").slice(0, 180);
+        window.history.replaceState({}, "", window.location.pathname);
+        if (retorno === "ok") setNotice("Conta do Bling conectada neste computador.");
+        else setError(msg || "Não foi possível conectar ao Bling.");
+      }, []);
+
+      function reload() {
+        setTick((n) => n + 1);
+      }
+
+      function alternarTeste() {
+        const next = !BlingApi.modoTeste();
+        BlingApi.definirModoTeste(next);
+        setTestMode(next);
+        setBling(next ? "Modo de testes" : "Bling API: verificando…");
+        setBlingOk(false);
+        setCatalogo([]);
+        setCurrent(null);
+        setQuery("");
+        setStatus("");
+        setView("list");
+        setError("");
+        setNotice("");
+        reload();
+      }
+
+      function alternarTema() {
+        const next = !escuro;
+        try {
+          localStorage.setItem(TEMA_KEY, next ? "escuro" : "claro");
+        } catch (err) {
+          /* o tema vale nesta visita mesmo sem armazenamento */
+        }
+        aplicarTema(next);
+        setEscuro(next);
+      }
+
+      async function openDetails(id) {
+        const previa = catalogo.find((os) => os.id === id);
+        setError("");
+        if (previa) {
+          setCurrent(previa);
+          setView("detail");
+        }
+        setImgDetalhe(true);
+        try {
+          const os = await BlingApi.getOrdem(id);
+          setCurrent(os);
+          setCatalogo((prev) => prev.map((item) => (item.id === os.id ? os : item)));
+          setView("detail");
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setImgDetalhe(false);
+        }
+      }
+
+      async function atualizarImagens() {
+        if (!current) return;
+        setImgDetalhe(true);
+        setError("");
+        try {
+          const os = await BlingApi.carregarImagens(current.id, true);
+          setCurrent(os);
+          setCatalogo((prev) => prev.map((item) => (item.id === os.id ? os : item)));
+        } catch (err) {
+          setError(err.message || "Não foi possível atualizar as imagens do Bling.");
+        } finally {
+          setImgDetalhe(false);
+        }
+      }
+
+      function openCreate() {
+        setForm(emptyForm());
+        setFormFrom("list");
+        setError("");
+        setView("form");
+      }
+
+      function openEdit() {
+        if (!current || current.status === "Concluída") return;
+        setForm({
+          id: current.id,
+          hardware: current.hardware,
+          dataEntrada: current.dataEntrada || current.dataAbertura,
+          dataSaida: current.dataSaida || "",
+          tipoManutencao: current.tipoManutencao,
+          status: current.status,
+          tecnico: current.tecnico,
+          descricao: current.descricao,
+          clienteNome: current.clienteNome,
+          clienteCpf: current.clienteCpf,
+          telefone: current.telefone,
+          fotosEntrada: (current.fotos || []).filter((foto) => foto.categoria === "entrada").map((foto) => Object.assign({}, foto)),
+          fotosSaida: (current.fotos || []).filter((foto) => foto.categoria === "saida").map((foto) => Object.assign({}, foto)),
+        });
+        setFormFrom("detail");
+        setError("");
+        setView("form");
+      }
+
+      function goBack() {
+        setError("");
+        if (view === "photo") {
+          setView("detail");
+          return;
+        }
+        if (view === "form" && formFrom === "detail") {
+          setView("detail");
+          return;
+        }
+        setView("list");
+        reload();
+      }
+
+      async function submitForm(event) {
+        event.preventDefault();
+        if (form.dataSaida && form.dataEntrada && form.dataSaida < form.dataEntrada) {
+          setError("A data de saída não pode ser anterior à data de entrada.");
+          return;
+        }
+        if (!form.id && !documentoValido(form.clienteCpf)) {
+          setError("CPF ou CNPJ inválido. Use 11 números para CPF ou 14 para CNPJ, com os dígitos verificadores corretos.");
+          return;
+        }
+        if (!form.id && !telefoneAceito(form.telefone)) {
+          setError("Telefone inválido. Use o DDD e o número: 10 dígitos para fixo ou 11 para celular.");
+          return;
+        }
+        const fechando = form.status === "Concluída" && (!current || current.status !== "Concluída");
+        if (fechando) {
+          const ok = window.confirm("Concluir esta OS? Depois disso, fotos e observações ficam travadas no histórico.");
+          if (!ok) return;
+        }
+        const payload = Object.assign({}, form, {
+          fotos: (form.fotosEntrada || []).concat(form.fotosSaida || []),
+        });
+        delete payload.fotosEntrada;
+        delete payload.fotosSaida;
+        if (payload.status === "Concluída" && !payload.dataSaida) payload.dataSaida = todayISO();
+        setBusy(true);
+        setError("");
+        try {
+          const saved = await BlingApi.saveOrdem(payload);
+          const fresh = await BlingApi.getOrdem(saved.id);
+          setCurrent(fresh);
+          setView("detail");
+          setNotice(form.id ? "Registro atualizado." : "Registro salvo e vinculado ao número da OS.");
+          reload();
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      async function removeOrdem() {
+        if (!form.id) return;
+        if (!window.confirm("Excluir este registro? As fotos locais desta OS também saem da bancada.")) return;
+        setBusy(true);
+        try {
+          await BlingApi.deleteOrdem(form.id);
+          setCurrent(null);
+          setView("list");
+          setNotice("Registro excluído.");
+          reload();
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      function openPhoto(categoria) {
+        if (!current || current.status === "Concluída") return;
+        setPhotoCat(categoria);
+        setPreview("");
+        setFileName("");
+        setCapturedAt("");
+        setError("");
+        setView("photo");
+      }
+
+      async function onFormFile(file) {
+        if (!file) return;
+        setError("");
+        try {
+          const dataUrl = await compressImage(file);
+          const foto = {
+            id: "novo-" + Date.now(),
+            categoria: formFotoCat.current,
+            dataUrl: dataUrl,
+            nomeArquivo: file.name || "foto.jpg",
+            uploadedAt: new Date().toISOString(),
+            origem: "local",
+          };
+          const campo = foto.categoria === "saida" ? "fotosSaida" : "fotosEntrada";
+          setForm((atual) => Object.assign({}, atual, { [campo]: (atual[campo] || []).concat(foto) }));
+        } catch (err) {
+          setError(err.message);
+        }
+      }
+
+      async function onFile(file) {
+        if (!file) return;
+        setError("");
+        try {
+          const dataUrl = await compressImage(file);
+          setPreview(dataUrl);
+          setFileName(file.name || "foto.jpg");
+          setCapturedAt(new Date().toISOString());
+        } catch (err) {
+          setPreview("");
+          setCapturedAt("");
+          setError(err.message);
+        }
+      }
+
+      async function confirmPhoto() {
+        if (!preview || !current) return;
+        setBusy(true);
+        try {
+          await BlingApi.addFoto(current.id, {
+            categoria: photoCat,
+            dataUrl: preview,
+            uploadedAt: capturedAt || new Date().toISOString(),
+            nomeArquivo: fileName,
+          });
+          const fresh = await BlingApi.getOrdem(current.id);
+          setCurrent(fresh);
+          setView("detail");
+          setNotice(photoCat === "entrada" ? "Foto de entrada anexada." : "Foto de saída anexada.");
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      async function removeFoto(fotoId) {
+        if (!current || current.status === "Concluída") return;
+        if (!window.confirm("Excluir esta foto do registro?")) return;
+        try {
+          await BlingApi.deleteFoto(current.id, fotoId);
+          const fresh = await BlingApi.getOrdem(current.id);
+          setCurrent(fresh);
+          if (lightbox && lightbox.id === fotoId) setLightbox(null);
+        } catch (err) {
+          setError(err.message);
+        }
+      }
+
+      async function buscarNoBling(numero) {
+        setBusy(true);
+        setError("");
+        try {
+          const result = await BlingApi.syncOrdem(numero || syncNumero);
+          setCurrent(result.ordem);
+          setView("detail");
+          setNotice(result.already ? "Esta OS já estava na bancada." : "OS " + result.ordem.numero + " sincronizada do Bling.");
+          reload();
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      async function doBackup() {
+        try {
+          const payload = await BlingApi.exportBackup();
+          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+          const link = document.createElement("a");
+          const url = URL.createObjectURL(blob);
+          link.href = url;
+          link.download = "backup-fernandes-os-" + todayISO() + ".json";
+          link.click();
+          URL.revokeObjectURL(url);
+          setBackupPendente(false);
+          setNotice("Backup de hoje gerado.");
+        } catch (err) {
+          setError(err.message || "Não foi possível gerar o backup.");
+        }
+      }
+
+      const titles = {
+        list: "Registros de Manutenção",
+        detail: "Detalhes do Registro",
+        form: "Criar/Editar Registro",
+        photo: "Adicionar Foto",
+        sync: "Sincronizar OS do Bling",
+      };
+
+      return (
+        <div className="min-h-screen">
+          <header className="bg-ink text-white">
+            <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-4">
+              {view !== "list" && (
+                <button type="button" onClick={goBack} className="rounded-lg px-2 py-1 text-lg leading-none hover:bg-white/10" aria-label="Voltar">
+                  ←
+                </button>
+              )}
+              <div className="min-w-0 flex-1">
+                {view === "list" && <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Fernandes Hardware</p>}
+                <h1 className="text-lg font-semibold leading-tight sm:text-xl">{titles[view]}</h1>
+                <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-slate-700/80 px-3 py-1.5 text-xs sm:text-sm">
+                  <span className={"h-2.5 w-2.5 rounded-full " + (testMode ? "bg-amber-400" : blingOk ? "bg-emerald-400" : "bg-rose-400")} />
+                  <span className="whitespace-nowrap">{bling}</span>
+                </div>
+              </div>
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-2">
+                <div className="theme-toggle">
+                  <span>Testes</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={testMode}
+                    aria-label="Modo de testes"
+                    className={"ios-switch" + (testMode ? " is-on" : "")}
+                    onClick={alternarTeste}
+                  >
+                    <span />
+                  </button>
+                </div>
+                <div className="theme-toggle">
+                  <span>{escuro ? "tema branco" : "tema escuro"}</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={escuro}
+                    aria-label={escuro ? "Tema branco" : "Tema escuro"}
+                    className={"ios-switch" + (escuro ? " is-on" : "")}
+                    onClick={alternarTema}
+                  >
+                    <span />
+                  </button>
+                </div>
+              </div>
+              {view === "detail" && !locked && (
+                <button type="button" onClick={openEdit} className="rounded-lg bg-brand px-3 py-1.5 text-sm font-semibold hover:bg-blue-700">
+                  Editar
+                </button>
+              )}
+            </div>
+          </header>
+
+          <main className="mx-auto max-w-3xl px-4 py-5">
+            {error && (
+              <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert">
+                {error}
+                <button type="button" className="ml-3 underline" onClick={() => setError("")}>fechar</button>
+              </div>
+            )}
+            {notice && (
+              <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900" role="status">
+                {notice}
+              </div>
+            )}
+
+            {view === "list" && (
+              <section>
+                {testMode && (
+                  <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                    Modo de testes ligado. Estes registros foram gerados para a apresentação e não existem no Bling.
+                  </div>
+                )}
+                {!loading && !testMode && !blingOk && (
+                  <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                    <p className="font-semibold">Bling desconectado</p>
+                    <p className="mt-1">As ordens da loja aparecem depois que a conta for autorizada neste computador.</p>
+                    <a href={urlConectar()} className="mt-3 inline-flex rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">Conectar ao Bling</a>
+                  </div>
+                )}
+
+                {backupPendente && (
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                    <span>Backup de hoje ainda não foi gerado.</span>
+                    <button type="button" onClick={doBackup} className="rounded-md bg-ink px-3 py-1.5 text-xs font-semibold text-white">Gerar backup</button>
+                  </div>
+                )}
+
+                <label className="block text-sm">
+                  <span className="sr-only">Buscar por número da OS ou CPF</span>
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Buscar por número da OS ou CPF"
+                    autoComplete="off"
+                    className={fieldClass}
+                  />
+                </label>
+
+                <div className="mt-3 flex flex-wrap gap-2" aria-label="Filtrar por status">
+                  {["", ...STATUS].map((item) => (
+                    <button
+                      key={item || "todos"}
+                      type="button"
+                      onClick={() => setStatus(item)}
+                      className={"shrink-0 rounded-full px-3 py-1.5 text-sm font-medium ring-1 " + (status === item ? "bg-ink text-white ring-ink" : "bg-white text-slate-600 ring-slate-200")}
+                    >
+                      {item || "Todos"}
+                    </button>
+                  ))}
+                </div>
+
+                <button type="button" onClick={openCreate} disabled={semBling} className="mt-4 w-full rounded-lg bg-brand px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">
+                  + Adicionar Novo Registro
+                </button>
+                <button type="button" onClick={() => { setSyncNumero(""); setError(""); setView("sync"); }} disabled={semBling} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-ink hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">
+                  Sincronizar OS do Bling
+                </button>
+
+                <p className="mb-3 mt-5 text-sm text-slate-500">
+                  {loading ? "Consultando o Bling…" : ordens.length + " ordem(ns) na bancada"}
+                </p>
+
+                <div className="grid gap-3">
+                  {!loading && ordens.length === 0 && (
+                    <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
+                      {semBling && !query && !status ? "Nenhuma ordem na bancada enquanto o Bling estiver desconectado." : "Nenhuma ordem encontrada para essa busca."}
+                    </div>
+                  )}
+                  {ordens.map((os) => (
+                    <article key={os.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <div className="flex gap-3">
+                        <Capa os={os} carregando={!testMode && blingOk && imgPendentes.indexOf(os.id) >= 0} remoto={!testMode} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <h2 className="text-base font-semibold leading-snug text-ink">{os.hardware} - OS: {os.numero}</h2>
+                            <span className={"shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 " + badgeClass(os.status)}>{os.status}</span>
+                          </div>
+                          <p className="mt-2 truncate text-sm text-slate-700">{os.clienteNome}</p>
+                          <p className="truncate text-sm text-slate-500">CPF/CNPJ {os.clienteCpf}</p>
+                          <p className="mt-1 text-sm text-slate-600">Data: {formatDay(os.dataAbertura)}</p>
+                        </div>
+                      </div>
+                      <button type="button" onClick={() => openDetails(os.id)} className="mt-3 w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 sm:w-auto">
+                        Ver Detalhes
+                      </button>
+                    </article>
+                  ))}
+                </div>
+
+                <footer className="mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 pb-6 text-xs text-slate-400">
+                  <span>Uso interno na bancada</span>
+                  {catalogo.length > 0 && <button type="button" className="underline" onClick={doBackup}>Gerar backup</button>}
+                </footer>
+              </section>
+            )}
+
+            {view === "detail" && current && (
+              <section className="space-y-4 pb-8">
+                {locked && (
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                    Esta OS está concluída. O histórico de fotos e observações fica preservado e não pode ser alterado.
+                  </div>
+                )}
+
+                <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-lg font-semibold text-ink">{current.hardware} - OS: {current.numero}</h2>
+                    <span className={"rounded-full px-2.5 py-1 text-xs font-semibold ring-1 " + badgeClass(current.status)}>{current.status}</span>
+                  </div>
+                  <p className="text-sm text-slate-600">Data: {formatDay(current.dataAbertura)}</p>
+                  <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                    <Field label="Cliente" value={current.clienteNome} />
+                    <Field label="CPF / CNPJ" value={current.clienteCpf} />
+                    <Field label="Telefone" value={current.telefone} />
+                    <Field label="Tipo de hardware" value={current.hardware} />
+                    <Field label="Tipo de manutenção" value={current.tipoManutencao} />
+                    <Field label="Técnico responsável" value={current.tecnico} />
+                    <Field label="Data de entrada" value={formatDay(current.dataEntrada)} />
+                    <Field label="Data de saída" value={formatDay(current.dataSaida)} />
+                  </dl>
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Descrição</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{current.descricao || "Sem observações."}</p>
+                  </div>
+                </article>
+
+                {!testMode && (
+                <div className="flex flex-col gap-3 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-950 sm:flex-row sm:items-center sm:justify-between">
+                  <p>As fotos vêm do lançamento no Bling: anexos da ordem e imagens das peças e serviços. Não precisa enviar a mesma foto aqui.</p>
+                  <button type="button" disabled={imgDetalhe} onClick={atualizarImagens} className="shrink-0 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-ink ring-1 ring-sky-200 hover:bg-sky-100 disabled:opacity-60">
+                    {imgDetalhe ? "Buscando imagens…" : "Atualizar imagens"}
+                  </button>
+                </div>
+                )}
+                {imgDetalhe && <p className="text-sm text-slate-500">Buscando as imagens deste lançamento no Bling…</p>}
+
+                <Gallery
+                  title="Imagem de Entrada"
+                  hint={testMode ? "Como o equipamento chegou" : "Peças lançadas nesta OS e anexos de entrada"}
+                  fotos={fotosEntrada}
+                  locked={locked}
+                  remoto={!testMode}
+                  onAdd={() => openPhoto("entrada")}
+                  onOpen={setLightbox}
+                  onDelete={removeFoto}
+                />
+                <Gallery
+                  title="Imagem de Saída"
+                  hint={testMode ? "Como o equipamento saiu da assistência" : "Serviços lançados nesta OS e anexos de saída"}
+                  fotos={fotosSaida}
+                  locked={locked}
+                  remoto={!testMode}
+                  onAdd={() => openPhoto("saida")}
+                  onOpen={setLightbox}
+                  onDelete={removeFoto}
+                />
+              </section>
+            )}
+
+            {view === "form" && (
+              <form onSubmit={submitForm} className="mx-auto max-w-lg space-y-4 pb-10">
+                <p className="text-sm text-slate-500">
+                  {testMode
+                    ? "No modo de testes o registro fica neste navegador. As fotos de entrada e de saída entram neste formulário."
+                    : form.id
+                      ? "Os dados do cliente vieram do Bling e ficam somente leitura. O que você salva aqui volta para a OS."
+                      : "Registro local, pronto para o POST na API do Bling. Se a OS já existe, use Sincronizar."}
+                </p>
+
+                {form.id ? (
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
+                    <p className="font-semibold text-ink">{form.clienteNome}</p>
+                    <p className="text-slate-500">{form.clienteCpf} · {form.telefone || "sem telefone"}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cliente</p>
+                    <TextField label="Nome do cliente" value={form.clienteNome} onChange={(v) => setForm({ ...form, clienteNome: v })} required />
+                    <label className="block text-sm font-medium">
+                      CPF ou CNPJ
+                      <input
+                        required
+                        inputMode="numeric"
+                        autoComplete="off"
+                        maxLength={18}
+                        placeholder="000.000.000-00"
+                        className={fieldClass}
+                        value={form.clienteCpf}
+                        onChange={(e) => setForm({ ...form, clienteCpf: mascaraCpfCnpj(e.target.value) })}
+                      />
+
+                    </label>
+                    <label className="block text-sm font-medium">
+                      Telefone
+                      <input
+                        inputMode="tel"
+                        autoComplete="off"
+                        maxLength={15}
+                        placeholder="(27) 90000-0000"
+                        className={fieldClass}
+                        value={form.telefone}
+                        onChange={(e) => setForm({ ...form, telefone: mascaraTelefone(e.target.value) })}
+                      />
+                    </label>
+                  </div>
+                )}
+
+                <SelectField label="Tipo de Hardware" value={form.hardware} options={HARDWARE} onChange={(v) => setForm({ ...form, hardware: v })} />
+                <label className="block text-sm font-medium">
+                  Data de Entrada
+                  <input type="date" required className={fieldClass} value={form.dataEntrada} onChange={(e) => setForm({ ...form, dataEntrada: e.target.value })} />
+                </label>
+                <label className="block text-sm font-medium">
+                  Data de Saída
+                  <input type="date" className={fieldClass} value={form.dataSaida} onChange={(e) => setForm({ ...form, dataSaida: e.target.value })} />
+                </label>
+                <SelectField label="Tipo de Manutenção" value={form.tipoManutencao} options={MANUTENCOES} onChange={(v) => setForm({ ...form, tipoManutencao: v })} />
+                <SelectField label="Status" value={form.status} options={STATUS} onChange={(v) => setForm({ ...form, status: v })} />
+                <TextField label="Nome do Técnico" value={form.tecnico} onChange={(v) => setForm({ ...form, tecnico: v })} required placeholder="Digite o nome completo do técnico" />
+                <label className="block text-sm font-medium">
+                  Descrição / Observações Técnicas
+                  <textarea required rows={5} placeholder="Descrição detalhada da manutenção realizada..." className={fieldClass} value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
+                </label>
+
+                {testMode && (
+                  <div className="space-y-4">
+                    <FormFotos
+                      titulo="Imagem de Entrada"
+                      hint="Como o equipamento chegou."
+                      fotos={form.fotosEntrada || []}
+                      onCamera={() => { formFotoCat.current = "entrada"; formCameraRef.current && formCameraRef.current.click(); }}
+                      onGallery={() => { formFotoCat.current = "entrada"; formGalleryRef.current && formGalleryRef.current.click(); }}
+                      onRemove={(id) => setForm((atual) => Object.assign({}, atual, { fotosEntrada: (atual.fotosEntrada || []).filter((foto) => foto.id !== id) }))}
+                    />
+                    <FormFotos
+                      titulo="Imagem de Saída"
+                      hint="Como o equipamento saiu da assistência."
+                      fotos={form.fotosSaida || []}
+                      onCamera={() => { formFotoCat.current = "saida"; formCameraRef.current && formCameraRef.current.click(); }}
+                      onGallery={() => { formFotoCat.current = "saida"; formGalleryRef.current && formGalleryRef.current.click(); }}
+                      onRemove={(id) => setForm((atual) => Object.assign({}, atual, { fotosSaida: (atual.fotosSaida || []).filter((foto) => foto.id !== id) }))}
+                    />
+                    <input ref={formCameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { onFormFile(e.target.files && e.target.files[0]); e.target.value = ""; }} />
+                    <input ref={formGalleryRef} type="file" accept="image/*" className="hidden" onChange={(e) => { onFormFile(e.target.files && e.target.files[0]); e.target.value = ""; }} />
+                  </div>
+                )}
+
+                <div className="space-y-2 pt-2">
+                  <button disabled={busy} className="w-full rounded-lg bg-brand px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">Salvar Registro</button>
+                  <button type="button" onClick={goBack} className="w-full rounded-lg bg-slate-600 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-700">Cancelar</button>
+                  {form.id && (
+                    <button type="button" onClick={removeOrdem} className="w-full rounded-lg bg-red-600 px-4 py-3 text-sm font-semibold text-white hover:bg-red-700">Excluir Registro</button>
+                  )}
+                </div>
+              </form>
+            )}
+
+            {view === "photo" && (
+              <section className="mx-auto max-w-lg space-y-4 pb-10">
+                <p className="text-sm text-slate-500">
+                  {photoCat === "entrada" ? "Check-up de entrada — como o equipamento chegou." : "Check-up de saída — como o equipamento saiu da assistência."}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => galleryRef.current && galleryRef.current.click()}
+                  className="flex min-h-56 w-full flex-col items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-200 text-slate-600"
+                >
+                  {preview
+                    ? <img src={preview} alt="Pré-visualização da foto" className="max-h-80 w-full object-contain bg-slate-900" />
+                    : (
+                      <span className="px-6 text-center">
+                        <CameraIcon />
+                        <span className="mt-2 block text-sm">Toque para capturar ou carregar foto</span>
+                      </span>
+                    )}
+                </button>
+                <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { onFile(e.target.files && e.target.files[0]); e.target.value = ""; }} />
+                <input ref={galleryRef} type="file" accept="image/*" className="hidden" onChange={(e) => { onFile(e.target.files && e.target.files[0]); e.target.value = ""; }} />
+                <button type="button" onClick={() => cameraRef.current && cameraRef.current.click()} className="w-full rounded-lg bg-brand px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700">
+                  Tirar Foto
+                </button>
+                <button type="button" onClick={() => galleryRef.current && galleryRef.current.click()} className="w-full rounded-lg bg-brand px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700">
+                  Carregar da Galeria
+                </button>
+                <label className="block text-sm font-medium">
+                  Data e hora de envio (Captura Automática)
+                  <input readOnly value={capturedAt ? formatWhen(capturedAt) : ""} placeholder="Preenchida ao escolher a foto" className={fieldClass + " bg-slate-100 text-slate-600"} />
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={goBack} className="rounded-lg bg-slate-500 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-600">Cancelar</button>
+                  <button type="button" disabled={!preview || busy} onClick={confirmPhoto} className="rounded-lg bg-brand px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">Adicionar</button>
+                </div>
+              </section>
+            )}
+
+            {view === "sync" && (
+              <section className="mx-auto max-w-lg space-y-4 pb-10">
+                <p className="text-sm leading-relaxed text-slate-600">
+                  Informe o número da ordem como ela aparece no Bling. As imagens são lidas do lançamento, das peças e dos serviços.
+                </p>
+                <label className="block text-sm font-medium">
+                  Número da OS
+                  <input
+                    inputMode="numeric"
+                    value={syncNumero}
+                    onChange={(e) => setSyncNumero(e.target.value)}
+                    placeholder="Número da OS no Bling"
+                    className={fieldClass}
+                  />
+                </label>
+                <button type="button" disabled={busy} onClick={() => buscarNoBling()} className="w-full rounded-lg bg-brand px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
+                  Buscar no Bling
+                </button>
+              </section>
+            )}
+          </main>
+
+          {lightbox && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4" onClick={() => setLightbox(null)}>
+              <figure className="w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
+                <img src={lightbox.dataUrl} alt="Foto ampliada do equipamento" className="max-h-[75vh] w-full rounded-lg bg-black object-contain" />
+                <figcaption className="mt-2 flex items-center justify-between gap-3 text-sm text-white">
+                  <span>{rotuloFoto(lightbox)}{lightbox.uploadedAt ? " · " + formatWhen(lightbox.uploadedAt) : ""}{lightbox.origem === "bling" ? " · Bling" : ""}</span>
+                  <button type="button" className="rounded bg-white/15 px-3 py-1" onClick={() => setLightbox(null)}>Fechar</button>
+                </figcaption>
+              </figure>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function FormFotos({ titulo, hint, fotos, onCamera, onGallery, onRemove }) {
+      return (
+        <section className="rounded-xl border border-slate-200 bg-white p-4">
+          <h3 className="font-semibold text-ink">{titulo}</h3>
+          <p className="mt-1 text-sm text-slate-500">{hint}</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button type="button" onClick={onCamera} className="rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">Tirar Foto</button>
+            <button type="button" onClick={onGallery} className="rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">Carregar da Galeria</button>
+          </div>
+          {fotos.length > 0 && (
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {fotos.map((foto) => (
+                <figure key={foto.id} className="overflow-hidden rounded-lg border border-slate-200">
+                  <img src={foto.dataUrl} alt={rotuloFoto(foto)} className="thumb w-full bg-slate-100 object-cover" />
+                  <figcaption className="space-y-1 px-2 py-1.5 text-[11px] text-slate-600">
+                    <span className="block">{formatWhen(foto.uploadedAt)}</span>
+                    <button type="button" onClick={() => onRemove(foto.id)} className="text-slate-400 hover:text-rose-600">remover</button>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          )}
+        </section>
+      );
+    }
+
+    function Field({ label, value }) {
+      return (
+        <div>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</dt>
+          <dd className="mt-0.5 text-slate-800">{value || "—"}</dd>
+        </div>
+      );
+    }
+
+    function TextField({ label, value, onChange, required, placeholder }) {
+      return (
+        <label className="block text-sm font-medium">
+          {label}
+          <input required={required} placeholder={placeholder || ""} className={fieldClass} value={value} onChange={(e) => onChange(e.target.value)} />
+        </label>
+      );
+    }
+
+    function SelectField({ label, value, options, onChange }) {
+      return (
+        <label className="block text-sm font-medium">
+          {label}
+          <select className={fieldClass} value={value} onChange={(e) => onChange(e.target.value)}>
+            {options.map((option) => <option key={option}>{option}</option>)}
+          </select>
+        </label>
+      );
+    }
+
+    function rotuloFoto(foto) {
+      if (!foto) return "";
+      if (foto.legenda) return foto.legenda;
+      const nome = String(foto.nomeArquivo || "").replace(/\.[a-z0-9]+$/i, "").replace(/[-_]/g, " ");
+      if (nome) return nome;
+      return foto.categoria === "saida" ? "Saída" : "Entrada";
+    }
+
+    function FotoImg({ src, alt, className }) {
+      const [erro, setErro] = useState(false);
+      if (!src || erro) {
+        return <div className={className + " flex items-center justify-center bg-slate-100 px-2 text-center text-[11px] leading-tight text-slate-500"}>Imagem indisponível</div>;
+      }
+      return <img src={src} alt={alt || ""} className={className} onError={() => setErro(true)} />;
+    }
+
+    function Capa({ os, carregando, remoto }) {
+      const fotos = (os.fotos || []).filter((foto) => foto.dataUrl);
+      const capa = fotos.find((foto) => foto.categoria === "entrada") || fotos[0];
+      if (!capa && carregando) {
+        return <div className="h-24 w-24 shrink-0 animate-pulse rounded-lg bg-slate-200" aria-label="Carregando imagem" />;
+      }
+      if (!capa) {
+        if (!remoto) return null;
+        return <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-lg bg-slate-100 px-2 text-center text-[11px] leading-tight text-slate-500">Sem imagem no Bling</div>;
+      }
+      return (
+        <div className="relative h-24 w-24 shrink-0">
+          <FotoImg src={capa.dataUrl} alt={rotuloFoto(capa)} className="h-24 w-24 rounded-lg bg-slate-100 object-cover" />
+          {fotos.length > 1 && <span className="absolute bottom-1 right-1 rounded bg-slate-950/75 px-1.5 py-0.5 text-[10px] font-semibold text-white">+{fotos.length - 1}</span>}
+        </div>
+      );
+    }
+
+    function Gallery({ title, hint, fotos, locked, remoto, onAdd, onOpen, onDelete }) {
+      return (
+        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="font-semibold text-ink">{title}</h3>
+              <p className="text-sm text-slate-500">{hint}</p>
+            </div>
+            {!locked && !remoto && (
+              <button type="button" onClick={onAdd} className="shrink-0 rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+                Adicionar Foto
+              </button>
+            )}
+          </div>
+          {fotos.length === 0 && (
+            <p className="text-sm text-slate-500">
+              {remoto ? "Nenhuma imagem desta etapa no lançamento do Bling." : "Nenhuma foto nesta etapa."}
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+            {fotos.map((foto) => (
+              <figure key={foto.id} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                <button type="button" className="block w-full" onClick={() => onOpen(foto)} aria-label={"Ampliar " + rotuloFoto(foto)}>
+                  <FotoImg src={foto.dataUrl} alt={rotuloFoto(foto)} className="thumb w-full bg-slate-100 object-cover" />
+                </button>
+                <figcaption className="space-y-1 px-2 py-2 text-[11px] leading-tight text-slate-600">
+                  <span className="block font-medium text-slate-700">{rotuloFoto(foto)}</span>
+                  {foto.origem === "bling" && <span className="inline-flex rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700">Bling</span>}
+                  {foto.uploadedAt && <span className="block">{formatWhen(foto.uploadedAt)}</span>}
+                  {!locked && !remoto && foto.origem !== "bling" && (
+                    <button type="button" onClick={() => onDelete(foto.id)} className="text-slate-400 hover:text-rose-600">excluir</button>
+                  )}
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
+      );
+    }
+
+    function CameraIcon() {
+      return (
+        <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true" className="mx-auto text-slate-500">
+          <path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
+          <circle cx="12" cy="13" r="3.2" />
+        </svg>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

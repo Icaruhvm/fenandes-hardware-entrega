@@ -1,0 +1,11 @@
+.env
+*.env
+configuracoes/.env
+*.dpapi
+configuracoes/*.tmp
+Thumbs.db
+Desktop.ini
+*.log
+proxy_bling.py
+__pycache__/
+*.pyc
