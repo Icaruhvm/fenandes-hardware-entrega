@@ -1,6 +1,6 @@
-# Fernandes Hardware — versão para o professor
+# Fernandes Hardware — versão de testes/entrega
 
-Esta pasta é uma cópia para apresentação. A versão da loja continua em `fenandes-hardware-trabalho` e não foi alterada.
+Esta pasta é uma cópia para apresentação.
 
 A chave **Testes** já começa ligada. A lista abre com registros gerados para a demonstração. Desligue a chave para voltar ao modo que só mostra o Bling.
 
