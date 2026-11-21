@@ -1,4 +1,4 @@
-# Fernandes Hardware — registros da bancada
+# Fernandes Hardware — versão de testes
 
 Trabalho de Fundamentos de Engenharia de Software, Universidade Vila Velha.
 Grupo: Bryan Alves, Ícaro Martins, Mateus Scardua, Victor de Paula e Leonardo Penkaitis.
