@@ -4,55 +4,38 @@ Trabalho de Fundamentos de Engenharia de Software, Universidade Vila Velha.
 Grupo: Bryan Alves, Ícaro Martins, Mateus Scardua, Victor de Paula e Leonardo Penkaitis.
 Parceiro: Fernandes Hardware.
 
-Hoje a foto da entrada e da saída do equipamento acaba no Discord, longe da ordem de serviço. Este site junta as duas coisas na bancada: a OS, o cliente e as fotos, no computador e no celular da loja.
+Na loja, a ordem de serviço fica no Bling e a foto do equipamento acaba no Discord. Este site junta as duas coisas numa tela só: a OS, o cliente, o técnico e as fotos de quando o aparelho chegou e de quando ele foi embora.
 
-Esta pasta é a versão para apresentar. A versão do dia a dia da loja está no outro repositório, `fenandes-hardware-trabalho`.
+O repositório está publicado para leitura. Dá para entender o que a tela faz e onde cada decisão mora no código.
 
-## Como abrir
+## O que a tela faz
 
-Precisa do Python 3. Na instalação, marca a opção de colocar o Python no PATH.
+A lista mostra o número da OS, o cliente, o aparelho, o tipo de manutenção e a situação: Pendente, Em Andamento ou Concluída. A busca é pelo número da OS ou pelos dígitos do CPF/CNPJ.
 
-1. Dois cliques em `iniciar.bat`.
-2. Abre http://localhost:8080
-3. No celular, na mesma rede Wi-Fi, usa o endereço que aparecer na janela preta.
-4. Para encerrar, fecha essa janela.
+Em Ver Detalhes ficam os dados do atendimento e as fotos. Entrada é a chegada do aparelho. Saída é a entrega. Ordem concluída trava edição, exclusão e foto nova. O histórico permanece como foi fechado.
 
-Se a porta 8080 já estiver ocupada, fecha a outra janela preta antes.
+No registro novo, CPF, CNPJ e telefone só aceitam número. CPF e CNPJ são conferidos pelos dígitos verificadores antes de gravar. O mesmo formulário recebe foto de entrada e foto de saída.
 
-## Na apresentação
+No topo há duas chaves. **Testes** mostra atendimentos de exemplo, criados para a apresentação, e a tela não chama o Bling. Com a chave desligada, a lista só traz ordem que o Bling devolver. A outra chave troca o visual: no claro o texto é tema escuro, no escuro o texto é tema branco. A escolha fica gravada no navegador.
 
-A chave **Testes** já vem ligada. A lista abre com atendimentos de exemplo, só para mostrar o fluxo. Não são ordens da loja. Desligou a chave, o site espera o Bling de verdade e a lista fica vazia até a conta ser autorizada.
+Os nomes, CPF, telefones e fotos dessa apresentação são fictícios. As fotos são desenhos gerados no próprio código, com dígito verificador válido só para o formulário aceitar o documento.
 
-Ao lado tem a chave de tema. No visual claro está escrito **tema escuro**. Com a tela escura, o texto vira **tema branco**.
+## Onde olhar
 
-Em **Ver Detalhes** aparecem as fotos de entrada, de quando o aparelho chegou, e as de saída, de quando ele foi embora. Ordem concluída não deixa editar nem apagar. O histórico fica como estava.
+- `index.html` — as telas. O JSX é compilado no navegador. O visual usa Tailwind.
+- `js/bling-api.js` — lista, gravação, fotos e o modo de testes. No modo real a conversa com o Bling passa por `/bling`, na mesma origem da página. Os pontos de partida são `listOrdens`, `saveOrdem` e `carregarImagens`.
+- `servidor.py` — entrega a tela e, com autorização feita, encaminha ao Bling apenas os caminhos que essa tela usa. A lógica mora na classe `Handler`.
+- `configuracoes/.env.example` — o nome das variáveis. Os valores estão vazios de propósito.
+- `vendor/` — React, ReactDOM, Babel e Tailwind, copiados para a tela não depender de CDN.
 
-Em **+ Adicionar Novo Registro** dá para tirar ou carregar foto de entrada e de saída. CPF, CNPJ e telefone só aceitam número. O documento é conferido antes de salvar.
+Peça no Bling vira foto de entrada. Serviço vira foto de saída. A imagem vem do cadastro do produto (`GET /produtos/{id}`), porque a ordem de serviço em si não guarda anexo.
 
-A busca é pelo número da OS ou pelos dígitos do CPF. O nome do cliente não entra na busca.
+## Credenciais e o que ficou de fora do Git
 
-## Quando a loja for usar de verdade
+Este repositório não contém senha, Client Secret nem token. O `.gitignore` deixa de fora `configuracoes/.env` e o arquivo cifrado do token (`*.dpapi`).
 
-A senha da conta do Bling não entra no código. Quem autoriza é o dono, no navegador deste computador.
+O navegador não recebe o access token. Quem guarda esse token é o `servidor.py`, cifrado com o DPAPI do Windows, no usuário que autorizou. A rota de status devolve só se está conectado e quando o token expira.
 
-1. Em [developer.bling.com.br](https://developer.bling.com.br), cria um aplicativo privado.
-2. Anota o Client ID e o Client Secret.
-3. No link de redirecionamento, coloca exatamente `http://127.0.0.1:8080/api/bling/callback`.
-4. Marca Ordens de Serviço, Produtos e Contatos.
-5. Copia `configuracoes/.env.example` para `configuracoes/.env` e cola o Client ID e o Client Secret lá.
-6. Fecha e abre de novo o `iniciar.bat`.
-7. No site, neste computador, toca em **Conectar ao Bling** e aceita.
+O servidor escuta só em `127.0.0.1`. O proxy confere o `Host` e recusa pedido vindo de outro site, para uma página qualquer aberta no navegador não conseguir usar o token. O retorno do OAuth confere o `state` com um cookie HttpOnly, em comparação de tempo constante, e o código de autorização não entra no log.
 
-O selo fica **Bling API: Conectado** e a lista passa a mostrar as ordens da conta. O celular usa essa mesma conexão, abrindo o endereço deste PC.
-
-O `.env` e o token ficam só nesta máquina. Não vão para o GitHub.
-
-Se o Bling recusar o retorno, o link cadastrado tem que ser igual ao do passo 3. Se abrir a página "Falta configurar o Bling", o `.env` está vazio ou a janela preta não foi reiniciada.
-
-## Onde mexer
-
-- `index.html` — as telas
-- `js/bling-api.js` — Bling, fotos e modo de testes
-- `servidor.py` e `iniciar.bat` — sobem o site na rede da loja
-- `configuracoes/.env.example` — modelo das credenciais
-- `vendor/` — React, Babel e Tailwind. A gente não mexe aí.
+Os caminhos liberados são os que a tela realmente chama: listar, abrir, criar e atualizar ordem de serviço, e ler a imagem do produto. Outro caminho da API do Bling recebe 404, sem o token ser anexado.

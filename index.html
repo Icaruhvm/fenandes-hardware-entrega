@@ -309,6 +309,7 @@
       const formCameraRef = useRef(null);
       const formGalleryRef = useRef(null);
       const formFotoCat = useRef("entrada");
+      const avisoBling = useRef(false);
 
       useEffect(() => {
         let cancel = false;
@@ -324,12 +325,12 @@
             if (cancel) return;
             setCatalogo(rows);
             setBackupPendente(rows.length > 0 && BlingApi.backupPendente());
-            setError("");
+            if (!avisoBling.current) setError("");
           } catch (err) {
             if (cancel) return;
             setBlingOk(false);
             setBling("Bling API: desconectado");
-            setError(err.message || "Falha ao consultar o Bling.");
+            if (!avisoBling.current) setError(err.message || "Falha ao consultar o Bling.");
           } finally {
             if (!cancel) setLoading(false);
           }
@@ -382,10 +383,10 @@
         const params = new URLSearchParams(window.location.search);
         const retorno = params.get("bling");
         if (!retorno) return;
-        const msg = String(params.get("msg") || "").slice(0, 180);
+        avisoBling.current = true;
         window.history.replaceState({}, "", window.location.pathname);
         if (retorno === "ok") setNotice("Conta do Bling conectada neste computador.");
-        else setError(msg || "Não foi possível conectar ao Bling.");
+        else setError("Não foi possível conectar ao Bling. Tente de novo neste computador.");
       }, []);
 
       function reload() {

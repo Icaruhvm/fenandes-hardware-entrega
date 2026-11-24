@@ -2,11 +2,12 @@
 # Sem pacotes extras: o iniciar.bat sobe este arquivo com o Python do Windows.
 # O token fica cifrado neste usuário (DPAPI), em configuracoes/bling_tokens.dpapi.
 # O navegador nunca recebe o access token.
+# O proxy só atende a própria máquina, e só os caminhos que a tela usa.
 
 import json
 import os
+import re
 import secrets
-import socket
 import sys
 import threading
 import time
@@ -26,6 +27,17 @@ BLING_AUTH = "https://www.bling.com.br/Api/v3/oauth/authorize"
 PORTA = int(os.environ.get("FH_PORT", "8080"))
 LIMITE_CORPO = 2_000_000
 ESTADO_SEGUNDOS = 600
+_ID_BLING = re.compile(r"^[0-9]{1,18}$")
+_QUERY_BLING = re.compile(r"^[0-9]{1,12}$")
+_HOST_LOCAL = re.compile(r"^[a-z0-9.:-]+$")
+ARQUIVOS_PUBLICOS = {
+    "index.html",
+    "js/bling-api.js",
+    "vendor/babel.min.js",
+    "vendor/react-dom.production.min.js",
+    "vendor/react.production.min.js",
+    "vendor/tailwind.js",
+}
 
 _estados = {}
 _trava_estado = threading.Lock()
@@ -288,17 +300,75 @@ def url_autorizacao(estado):
     })
 
 
-def alvo_bling(caminho):
+def destino_bling(method, caminho):
+    """Monta a URL da API só para os caminhos que a tela chama.
+
+    O pedido original não é concatenado. Caminho e consulta são reescritos
+    a partir do que passou na lista, para o proxy não virar um cliente
+    genérico do Bling nem aceitar outro host.
+    """
     parsed = urlparse(caminho)
     if parsed.path != "/bling" and not parsed.path.startswith("/bling/"):
         return None
-    resto = parsed.path[len("/bling"):] or "/"
-    if not resto.startswith("/"):
-        resto = "/" + resto
-    if resto.startswith("//") or "\\" in resto:
+    bruto = parsed.path[len("/bling"):] or "/"
+    if not bruto.startswith("/"):
+        bruto = "/" + bruto
+    if bruto.startswith("//") or "\\" in bruto or "%" in bruto or ".." in bruto:
         return None
-    consulta = ("?" + parsed.query) if parsed.query else ""
-    return BLING_API + resto + consulta
+    if len(bruto) > 1 and bruto.endswith("/"):
+        bruto = bruto[:-1]
+    partes = [parte for parte in bruto.split("/") if parte]
+    verbo = (method or "").upper()
+    if verbo == "HEAD":
+        verbo = "GET"
+    try:
+        consulta = parse_qs(parsed.query, keep_blank_values=True)
+    except ValueError:
+        return None
+    if any(chave not in ("pagina", "limite", "numero") for chave in consulta):
+        return None
+    limpos = []
+    for chave in ("pagina", "limite", "numero"):
+        valores = consulta.get(chave)
+        if not valores:
+            continue
+        if len(valores) != 1 or not _QUERY_BLING.match(valores[0]):
+            return None
+        limpos.append((chave, valores[0]))
+    if partes == ["ordens", "servico"] and verbo == "GET":
+        permitido = True
+    elif partes == ["ordens", "servico"] and verbo == "POST" and not limpos:
+        permitido = True
+    elif (
+        len(partes) == 3
+        and partes[0] == "ordens"
+        and partes[1] == "servico"
+        and _ID_BLING.match(partes[2])
+        and verbo in ("GET", "PUT")
+        and not limpos
+    ):
+        permitido = True
+    elif (
+        len(partes) == 2
+        and partes[0] == "produtos"
+        and _ID_BLING.match(partes[1])
+        and verbo == "GET"
+        and not limpos
+    ):
+        permitido = True
+    else:
+        permitido = False
+    if not permitido:
+        return None
+    qs = ("?" + urlencode(limpos)) if limpos else ""
+    return BLING_API + bruto + qs
+
+
+def ler_ate(origem):
+    dados = origem.read(LIMITE_CORPO + 1)
+    if len(dados) > LIMITE_CORPO:
+        return None
+    return dados
 
 
 def chamar_bling(method, url, token, corpo, content_type):
@@ -306,36 +376,52 @@ def chamar_bling(method, url, token, corpo, content_type):
     req.add_header("Authorization", "Bearer " + token)
     req.add_header("Accept", "application/json")
     if corpo and content_type:
-        req.add_header("Content-Type", content_type)
+        req.add_header("Content-Type", "application/json")
     try:
         with urlopen(req, timeout=20) as resp:
             tipo = resp.headers.get("Content-Type", "application/json")
-            return resp.status, tipo, resp.read()
+            status = resp.status
+            dados = ler_ate(resp)
     except HTTPError as exc:
         tipo = exc.headers.get("Content-Type", "application/json") if exc.headers else "application/json"
         try:
-            corpo_erro = exc.read()
+            dados = ler_ate(exc)
         except Exception:
-            corpo_erro = b""
-        return exc.code, tipo, corpo_erro
+            dados = b""
+        if dados is None:
+            dados = b""
+        return exc.code, tipo, dados
     except (URLError, TimeoutError, OSError):
         msg = json.dumps(
             {"error": {"message": "O Bling não respondeu. Tente de novo em instantes."}},
             ensure_ascii=False,
         ).encode("utf-8")
         return 502, "application/json; charset=utf-8", msg
+    if dados is None:
+        msg = json.dumps(
+            {"error": {"message": "Resposta do Bling grande demais."}},
+            ensure_ascii=False,
+        ).encode("utf-8")
+        return 502, "application/json; charset=utf-8", msg
+    return status, tipo, dados
+
+
+def tipo_json_seguro(tipo):
+    base = (tipo or "").split(";")[0].strip().lower()
+    if base in ("application/json", "application/problem+json"):
+        return "application/json; charset=utf-8"
+    return None
 
 
 def arquivo_publico(caminho):
     parsed = urlparse(caminho)
-    rel = parsed.path.lstrip("/") or "index.html"
-    candidato = Path(rel)
-    if candidato.is_absolute():
+    rel = parsed.path
+    if rel in ("", "/"):
+        rel = "/index.html"
+    rel = rel.lstrip("/")
+    if not rel or "\\" in rel or ".." in rel or "%" in rel or rel not in ARQUIVOS_PUBLICOS:
         return None
-    partes = candidato.parts
-    if any(parte in ("..", ".git", "configuracoes") or parte.startswith(".") for parte in partes):
-        return None
-    alvo = (RAIZ / candidato).resolve()
+    alvo = (RAIZ / rel).resolve()
     try:
         alvo.relative_to(RAIZ)
     except ValueError:
@@ -345,15 +431,24 @@ def arquivo_publico(caminho):
     return alvo
 
 
-def ip_da_rede():
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.connect(("8.8.8.8", 80))
-        ip = sock.getsockname()[0]
-        sock.close()
-        return ip
-    except OSError:
-        return ""
+def ip_local(ip):
+    if not ip:
+        return False
+    if ip.startswith("::ffff:"):
+        ip = ip[7:]
+    return ip == "::1" or ip.startswith("127.")
+
+
+def host_da_maquina(host):
+    host = (host or "").strip().lower()
+    if not host or not _HOST_LOCAL.match(host) or host.count(":") > 1:
+        return False
+    nome, sep, porta = host.partition(":")
+    if sep and porta != str(PORTA):
+        return False
+    if not sep and str(PORTA) not in ("80", "443"):
+        return False
+    return nome in ("127.0.0.1", "localhost")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -383,6 +478,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(corpo)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Content-Security-Policy", "frame-ancestors 'none'")
         for chave, valor in extra or []:
             self.send_header(chave, valor)
         self.end_headers()
@@ -461,7 +559,29 @@ class Handler(BaseHTTPRequestHandler):
             return
         self.json(404, {"error": {"message": "Caminho não encontrado."}})
 
+    def pedido_confiavel(self, navegacao_externa=False):
+        ip = self.client_address[0] if self.client_address else ""
+        if not ip_local(ip) or not host_da_maquina(self.headers.get("Host")):
+            self.json(403, {"error": {"message": "O Bling só responde para este computador."}})
+            return False
+        if navegacao_externa:
+            return True
+        site = (self.headers.get("Sec-Fetch-Site") or "").strip().lower()
+        if site in ("cross-site", "same-site"):
+            self.json(403, {"error": {"message": "Pedido recusado."}})
+            return False
+        origem = (self.headers.get("Origin") or "").strip()
+        if origem:
+            parsed = urlparse(origem)
+            host = (self.headers.get("Host") or "").strip().lower()
+            if parsed.scheme not in ("http", "https") or parsed.netloc.lower() != host:
+                self.json(403, {"error": {"message": "Pedido recusado."}})
+                return False
+        return True
+
     def autorizar(self):
+        if not self.pedido_confiavel():
+            return
         cfg = configuracao()
         if not cfg["client_id"] or not cfg["client_secret"]:
             self.html(
@@ -478,10 +598,14 @@ class Handler(BaseHTTPRequestHandler):
         self.redirecionar(url_autorizacao(estado), cookie)
 
     def callback(self):
+        if not self.pedido_confiavel(navegacao_externa=True):
+            return
         qs = parse_qs(urlparse(self.path).query)
         code = (qs.get("code") or [""])[0]
         state = (qs.get("state") or [""])[0]
         erro = (qs.get("error") or [""])[0]
+        if len(code) > 512 or len(state) > 128 or len(erro) > 80:
+            code, state, erro = "", "", ""
         cookie = self.cookies().get("fh_oauth_state", "")
         limpar = "fh_oauth_state=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"
 
@@ -492,7 +616,7 @@ class Handler(BaseHTTPRequestHandler):
         if erro:
             falha("A autorização foi recusada no Bling.")
             return
-        if not code or not state or not cookie:
+        if not code or not state or not cookie or len(cookie) != len(state):
             falha("O retorno do Bling chegou incompleto. Tente conectar de novo.")
             return
         if not secrets.compare_digest(cookie, state) or not validar_estado(state):
@@ -506,6 +630,8 @@ class Handler(BaseHTTPRequestHandler):
         self.redirecionar("/?bling=ok", limpar)
 
     def status_bling(self):
+        if not self.pedido_confiavel():
+            return
         tokens = carregar_tokens()
         conectado = bool(tokens and tokens.get("access_token"))
         self.json(200, {
@@ -514,12 +640,18 @@ class Handler(BaseHTTPRequestHandler):
         })
 
     def proxy(self):
-        url = alvo_bling(self.path)
+        if not self.pedido_confiavel():
+            return
+        url = destino_bling(self.command, self.path)
         if not url:
             self.json(404, {"error": {"message": "Caminho do Bling inválido."}})
             return
         corpo = b""
         if self.command not in ("GET", "HEAD"):
+            base = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+            if base != "application/json":
+                self.json(415, {"error": {"message": "Envie JSON."}})
+                return
             corpo = self.ler_corpo()
             if corpo is None:
                 self.json(413, {"error": {"message": "Envio grande demais."}})
@@ -528,16 +660,19 @@ class Handler(BaseHTTPRequestHandler):
         if not token:
             self.json(401, {"error": {"message": "Bling não autorizado neste computador. Use Conectar ao Bling."}})
             return
-        tipo = self.headers.get("Content-Type")
-        status, content_type, resposta = chamar_bling(self.command, url, token, corpo, tipo)
+        status, content_type, resposta = chamar_bling(self.command, url, token, corpo, self.headers.get("Content-Type"))
         if status == 401:
             token = access_token(forcar=True)
             if token:
-                status, content_type, resposta = chamar_bling(self.command, url, token, corpo, tipo)
+                status, content_type, resposta = chamar_bling(self.command, url, token, corpo, self.headers.get("Content-Type"))
             else:
                 self.json(401, {"error": {"message": "A sessão do Bling expirou. Conecte de novo."}})
                 return
-        self.enviar(status, resposta or b"", content_type or "application/json")
+        tipo_seguro = tipo_json_seguro(content_type)
+        if not tipo_seguro:
+            self.json(502, {"error": {"message": "O Bling devolveu uma resposta que esta bancada não repassa."}})
+            return
+        self.enviar(status, resposta or b"", tipo_seguro)
 
     def estatico(self):
         alvo = arquivo_publico(self.path)
@@ -552,12 +687,10 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     cfg = configuracao()
-    ip = ip_da_rede()
     print("")
     print("Fernandes Hardware — Registros de Manutenção")
     print("Neste PC: http://127.0.0.1:%s" % PORTA)
-    if ip and not ip.startswith("127."):
-        print("No celular da bancada: http://%s:%s" % (ip, PORTA))
+    print("O token do Bling só responde a pedidos deste computador.")
     print("Retorno para cadastrar no Bling: %s" % cfg["redirect_uri"])
     if not cfg["client_id"] or not cfg["client_secret"]:
         print("Bling ainda sem credenciais. O site abre, e o selo fica desconectado.")
@@ -569,7 +702,7 @@ def main():
     print("Feche esta janela para encerrar.")
     print("")
     try:
-        servidor = ThreadingHTTPServer(("0.0.0.0", PORTA), Handler)
+        servidor = ThreadingHTTPServer(("127.0.0.1", PORTA), Handler)
     except OSError as exc:
         print("Não foi possível abrir a porta %s. %s" % (PORTA, exc.strerror or exc))
         return 1
