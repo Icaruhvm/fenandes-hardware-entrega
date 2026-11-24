@@ -1,4 +1,4 @@
-# Fernandes Hardware — versão de testes
+# Fernandes Hardware — versão de entrega para o professor
 
 Trabalho de Fundamentos de Engenharia de Software, Universidade Vila Velha.
 Grupo: Bryan Alves, Ícaro Martins, Mateus Scardua, Victor de Paula e Leonardo Penkaitis.
