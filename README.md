@@ -8,6 +8,12 @@ Na loja, a ordem de serviço fica no Bling e a foto do equipamento acaba no Disc
 
 O repositório está publicado para leitura. Dá para entender o que a tela faz e onde cada decisão mora no código.
 
+## Para ver a tela
+
+A versão de apresentação está no ar, sem senha: [fenandes-hardware-entrega.vercel.app](https://fenandes-hardware-entrega.vercel.app)
+
+Abre no computador e no celular. A chave Testes já vem ligada, com os registros de exemplo. A conta da loja não entra nessa página. Ela não pede senha porque não há cliente real nem token ali. Com a chave desligada, a lista fica vazia de propósito.
+
 ## O que a tela faz
 
 A lista mostra o número da OS, o cliente, o aparelho, o tipo de manutenção e a situação: Pendente, Em Andamento ou Concluída. A busca é pelo número da OS ou pelos dígitos do CPF/CNPJ.
@@ -33,6 +39,8 @@ Peça no Bling vira foto de entrada. Serviço vira foto de saída. A imagem vem 
 ## Credenciais e o que ficou de fora do Git
 
 Este repositório não contém senha, Client Secret nem token. O `.gitignore` deixa de fora `configuracoes/.env` e o arquivo cifrado do token (`*.dpapi`).
+
+A página publicada leva só a tela (`index.html`, `js/` e `vendor/`). O `servidor.py` continua aqui para quem for ler o código, e não sobe junto.
 
 O navegador não recebe o access token. Quem guarda esse token é o `servidor.py`, cifrado com o DPAPI do Windows, no usuário que autorizou. A rota de status devolve só se está conectado e quando o token expira.
 

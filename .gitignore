@@ -9,3 +9,6 @@ Desktop.ini
 proxy_bling.py
 __pycache__/
 *.pyc
+.vercel/
+
+.vercel
